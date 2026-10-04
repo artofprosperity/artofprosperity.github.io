@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Great Game: Project Zomboid, presented by Art of Prosperity</title>
+<meta name="description" content="Per-character zombie kills and survival time for the current season.">
+<style>
+  :root {
+    --bg: #f4f1ea; --panel: #fffdf8; --text: #1f1d18; --muted: #6b665a;
+    --line: #ddd6c6; --accent: #8a2b1d; --head: #ece6d6; --hover: #f7f2e4;
+    --alive: #2e7d32; --dead: #8a2b1d;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14130f; --panel: #1d1b16; --text: #ece7da; --muted: #9a9484;
+      --line: #35312a; --accent: #d65a45; --head: #26231d; --hover: #25221b;
+      --alive: #6fcf74; --dead: #e0705c;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14130f; --panel: #1d1b16; --text: #ece7da; --muted: #9a9484;
+    --line: #35312a; --accent: #d65a45; --head: #26231d; --hover: #25221b;
+    --alive: #6fcf74; --dead: #e0705c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 1160px; margin: 0 auto; padding: 24px 16px 48px; }
+  header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+  h1 { margin: 0 0 4px; font-size: 1.7rem; letter-spacing: .01em; }
+  .sub { margin: 0; color: var(--muted); font-size: .9rem; }
+  button.theme {
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: 8px; padding: 6px 12px; cursor: pointer; font: inherit; font-size: .85rem;
+  }
+  .controls { display: flex; gap: 10px; flex-wrap: wrap; margin: 20px 0 12px; }
+  .controls input[type=search], .controls select {
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: 8px; padding: 9px 12px; font: inherit; min-width: 0;
+  }
+  .controls input[type=search] { flex: 1 1 220px; }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button {
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: 999px; padding: 6px 14px; cursor: pointer; font: inherit; font-size: .88rem;
+  }
+  .tabs button[aria-pressed=true] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 700px; }
+  th, td { padding: 11px 16px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { background: var(--head); font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted);
+       cursor: pointer; user-select: none; position: sticky; top: 0; }
+  th:hover { color: var(--text); }
+  th .arrow { margin-left: 4px; color: var(--accent); }
+  th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.rank { color: var(--muted); width: 48px; font-variant-numeric: tabular-nums; }
+  tbody tr:hover { background: var(--hover); }
+  tbody tr:last-child td { border-bottom: 0; }
+  .status { font-size: .8rem; font-weight: 600; }
+  .status.Alive { color: var(--alive); }
+  .status.Dead { color: var(--dead); }
+  tr.exh td { font-style: italic; }
+  .empty { padding: 28px; text-align: center; color: var(--muted); }
+  footer { margin-top: 14px; color: var(--muted); font-size: .8rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>The Great Game: Project Zomboid, presented by Art of Prosperity</h1>
+      <p class="sub">Updated <time id="updated" datetime="2026-10-04T14:30:34Z">2026-10-04T14:30:34Z</time> &middot; <span id="count"></span></p>
+    </div>
+    <button class="theme" id="theme" type="button">Toggle theme</button>
+  </header>
+
+  <p class="sub" id="note" hidden>*Not eligible for rewards</p>
+
+  <div class="tabs" role="group" aria-label="Quick views">
+    <button type="button" data-view="kills" aria-pressed="true">Most zombies killed</button>
+    <button type="button" data-view="time" aria-pressed="false">Longest survival</button>
+  </div>
+
+  <div class="controls">
+    <input type="search" id="q" placeholder="Search account or character" aria-label="Search">
+    <select id="season" aria-label="Filter by season"></select>
+    <select id="status" aria-label="Filter by status">
+      <option value="">Alive &amp; dead</option>
+      <option value="Alive">Alive only</option>
+      <option value="Dead">Dead only</option>
+    </select>
+  </div>
+
+  <div class="card"><div class="scroll">
+    <table>
+      <thead><tr>
+        <th class="rank">#</th>
+        <th data-key="account">Server Account<span class="arrow"></span></th>
+        <th data-key="character">Character<span class="arrow"></span></th>
+        <th class="num" data-key="season">Season<span class="arrow"></span></th>
+        <th class="num" data-key="kills">Zombies Killed<span class="arrow"></span></th>
+        <th class="num" data-key="hours">Time Survived<span class="arrow"></span></th>
+        <th data-key="status">Status<span class="arrow"></span></th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div></div>
+  <footer>Each row is one character in one season, not an account. A character who survives into the next season starts that season at 0. Rank counts competing players only. Time survived is real play time while alive; living characters keep counting up. Click a column heading to sort.</footer>
+</div>
+
+<script>
+const DATA = [{"account": "FDR", "character": "Cornell Waller", "kills": 2795, "hours": 46.92, "status": "Alive", "competing": false, "season": 2}, {"account": "Bruno", "character": "Abram Potter", "kills": 1031, "hours": 4.22, "status": "Dead", "competing": true, "season": 2}, {"account": "na", "character": "NibblewhatsinyourMouth? glukglakittyNyaa", "kills": 752, "hours": 2.2, "status": "Alive", "competing": true, "season": 2}, {"account": "Bruno", "character": "Daisy Matlock", "kills": 734, "hours": 6.53, "status": "Dead", "competing": true, "season": 2}, {"account": "MrWiggles1101", "character": "Domingo Romino", "kills": 584, "hours": 21.68, "status": "Alive", "competing": true, "season": 2}, {"account": "Chicken", "character": "John Marston", "kills": 562, "hours": 10.26, "status": "Dead", "competing": true, "season": 2}, {"account": "Bruno", "character": "Thaddeus John", "kills": 335, "hours": 8.54, "status": "Dead", "competing": true, "season": 2}, {"account": "MoonCake", "character": "Maxine Madison", "kills": 327, "hours": 7.58, "status": "Dead", "competing": true, "season": 2}, {"account": "Breadlee", "character": "Bread Moldy", "kills": 312, "hours": 23.11, "status": "Dead", "competing": true, "season": 2}, {"account": "Chicken", "character": "Alex Hardy", "kills": 274, "hours": 18.2, "status": "Dead", "competing": true, "season": 2}, {"account": "Mr", "character": "Nick", "kills": 271, "hours": 12.88, "status": "Alive", "competing": true, "season": 2}, {"account": "you", "character": "Rosalinda Clapp", "kills": 168, "hours": 2.33, "status": "Dead", "competing": true, "season": 2}, {"account": "GoldenBucket", "character": "Danilo Tompkins", "kills": 142, "hours": 9.68, "status": "Dead", "competing": true, "season": 2}, {"account": "Luke grills", "character": "luke Griills", "kills": 133, "hours": 6.2, "status": "Alive", "competing": true, "season": 2}, {"account": "Chicken", "character": "Wilber Carmona", "kills": 81, "hours": 6.81, "status": "Dead", "competing": true, "season": 2}, {"account": "KingGooseJr", "character": "Goose 01", "kills": 81, "hours": 17.87, "status": "Alive", "competing": true, "season": 2}, {"account": "Mr", "character": "Nick", "kills": 80, "hours": 1.79, "status": "Dead", "competing": true, "season": 2}, {"account": "Breadlee", "character": "Don Johnson", "kills": 79, "hours": 6.5, "status": "Alive", "competing": true, "season": 2}, {"account": "GoldenBucket", "character": "Sick Man", "kills": 62, "hours": 5.54, "status": "Alive", "competing": true, "season": 2}, {"account": "GoldenBucket", "character": "John Idiot", "kills": 48, "hours": 0.7, "status": "Dead", "competing": true, "season": 2}, {"account": "Bruno", "character": "Gilbert Street", "kills": 32, "hours": 3.87, "status": "Alive", "competing": true, "season": 2}, {"account": "KingGooseJr", "character": "Goose 00", "kills": 30, "hours": 13.94, "status": "Dead", "competing": true, "season": 2}, {"account": "Mr", "character": "Nick", "kills": 28, "hours": 0.56, "status": "Dead", "competing": true, "season": 2}, {"account": "Reader", "character": "Funny Read", "kills": 28, "hours": 2.72, "status": "Alive", "competing": true, "season": 2}, {"account": "Mr", "character": "Nick", "kills": 24, "hours": 4.61, "status": "Dead", "competing": true, "season": 2}, {"account": "na", "character": "NibbleWatinYourMouth? glukglak", "kills": 16, "hours": 0.41, "status": "Dead", "competing": true, "season": 2}, {"account": "Glaze", "character": "Wilbert Foster", "kills": 14, "hours": 1.47, "status": "Dead", "competing": true, "season": 2}, {"account": "Glaze", "character": "Delmar Keane", "kills": 9, "hours": 0.2, "status": "Dead", "competing": true, "season": 2}, {"account": "Glaze", "character": "Big Daddy", "kills": 2, "hours": 0.39, "status": "Dead", "competing": true, "season": 2}, {"account": "Glaze", "character": "Big Daddy", "kills": 2, "hours": 0.71, "status": "Dead", "competing": true, "season": 2}, {"account": "Glaze", "character": "Big Daddy", "kills": 2, "hours": 1.07, "status": "Dead", "competing": true, "season": 2}, {"account": "GoldenBucket", "character": "John Glitch", "kills": 0, "hours": 0.1, "status": "Dead", "competing": true, "season": 2}, {"account": "MoonCake", "character": "Moon Cake", "kills": 0, "hours": 0.61, "status": "Alive", "competing": true, "season": 2}, {"account": "NibblewhatsinmyMouth", "character": "Wickham", "kills": 0, "hours": 0.0, "status": "Alive", "competing": true, "season": 2}];
+let sortKey = "kills", sortDir = -1;
+
+function fmtTime(h) {
+  const m = Math.round(h * 60);
+  return Math.floor(m / 60) + "h " + String(m % 60).padStart(2, "0") + "m";
+}
+
+function render() {
+  const q = document.getElementById("q").value.trim().toLowerCase();
+  const st = document.getElementById("status").value;
+  const se = document.getElementById("season").value;
+  let rows = DATA.filter(r =>
+    (!st || r.status === st) &&
+    (!se || r.season === Number(se)) &&
+    (!q || r.account.toLowerCase().includes(q) || r.character.toLowerCase().includes(q)));
+  rows.sort((a, b) => {
+    const x = a[sortKey], y = b[sortKey];
+    const c = typeof x === "number" ? x - y : String(x).localeCompare(String(y));
+    return c * sortDir || b.kills - a.kills;
+  });
+  const body = document.getElementById("rows");
+  body.replaceChildren();
+  if (!rows.length) {
+    const tr = body.insertRow(), td = tr.insertCell();
+    td.colSpan = 7; td.className = "empty"; td.textContent = "No characters match.";
+  }
+  let rank = 0;
+  rows.forEach(r => {
+    const tr = body.insertRow();
+    if (!r.competing) tr.className = "exh";
+    const cells = [
+      [r.competing ? ++rank : "\u2013", "rank"], [r.account, ""], [r.character, ""],
+      ["Season " + r.season, "num"], [r.kills.toLocaleString(), "num"], [fmtTime(r.hours), "num"], [r.status, ""]
+    ];
+    cells.forEach(([text, cls], j) => {
+      const td = tr.insertCell();
+      td.textContent = text;
+      if (cls) td.className = cls;
+      if (j === 1 && !r.competing) td.textContent += "*";
+      if (j === 6) { td.textContent = ""; const s = document.createElement("span");
+        s.className = "status " + r.status; s.textContent = r.status; td.appendChild(s); }
+    });
+  });
+  document.getElementById("count").textContent = rows.length + " of " + DATA.length + " characters";
+  document.querySelectorAll("th[data-key]").forEach(th => {
+    th.querySelector(".arrow").textContent = th.dataset.key === sortKey ? (sortDir < 0 ? "\u25BC" : "\u25B2") : "";
+  });
+}
+
+document.querySelectorAll("th[data-key]").forEach(th => th.addEventListener("click", () => {
+  const k = th.dataset.key;
+  if (sortKey === k) sortDir *= -1;
+  else { sortKey = k; sortDir = (k === "account" || k === "character" || k === "status") ? 1 : -1; }
+  document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-pressed", "false"));
+  render();
+}));
+document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => {
+  sortKey = b.dataset.view === "time" ? "hours" : "kills"; sortDir = -1;
+  document.querySelectorAll(".tabs button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+  render();
+}));
+document.getElementById("q").addEventListener("input", render);
+document.getElementById("status").addEventListener("change", render);
+const seasonSel = document.getElementById("season");
+const seasons = [...new Set(DATA.map(r => r.season))].sort((a, b) => b - a);
+seasons.forEach(n => seasonSel.add(new Option("Season " + n, n)));
+seasonSel.add(new Option("All seasons", ""));
+seasonSel.addEventListener("change", render);
+document.getElementById("theme").addEventListener("click", () => {
+  const dark = getComputedStyle(document.body).backgroundColor === "rgb(20, 19, 15)";
+  document.documentElement.dataset.theme = dark ? "light" : "dark";
+});
+const upd = document.getElementById("updated");
+const when = new Date(upd.getAttribute("datetime"));
+if (!isNaN(when)) upd.textContent = when.toLocaleString([], {dateStyle: "medium", timeStyle: "short"});
+if (DATA.some(r => !r.competing)) document.getElementById("note").hidden = false;
+render();
+</script>
+</body>
+</html>
